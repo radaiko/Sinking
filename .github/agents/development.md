@@ -2,7 +2,7 @@
 
 ## Project Setup
 - **Solution File**: `src/Sinking.sln`
-- **Project Type**: C#/.NET
+- **Project Type**: C#/.NET console application for 2-way sync between Jira, GitHub, and Azure DevOps issues
 - **Development Environment**: Visual Studio compatible
 
 ## Workflow Guidelines

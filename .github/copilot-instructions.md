@@ -1,7 +1,7 @@
 # Copilot Instructions for Sinking
 
 ## Project Overview
-Sinking is a C#/.NET project with a Visual Studio solution structure. This repository follows standard .NET development practices and conventions.
+Sinking is a C#/.NET project for a 2-way sync service between Jira, GitHub, and Azure DevOps issues. The project uses Visual Studio solution structure and follows standard .NET development practices and conventions.
 
 ## Development Environment
 - **Platform**: .NET (C#)
