@@ -1,0 +1,48 @@
+services:
+  sinking-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=https://+:8081;http://+:8080
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=password
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+    volumes:
+      - ~/.aspnet/https:/https:ro
+      - ./data:/app/data
+    depends_on:
+      - sqlite
+    networks:
+      - sinking-network
+
+  sinking-console:
+    build:
+      context: .
+      dockerfile: Dockerfile.console
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - sqlite
+    networks:
+      - sinking-network
+    profiles:
+      - console
+
+  sqlite:
+    image: alpine:latest
+    command: sh -c "apk add --no-cache sqlite && tail -f /dev/null"
+    volumes:
+      - ./data:/data
+    networks:
+      - sinking-network
+
+networks:
+  sinking-network:
+    driver: bridge
+
+volumes:
+  sinking-data:
