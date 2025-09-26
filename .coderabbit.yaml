@@ -1,0 +1,6 @@
+auto_review:
+  ignore_usernames: []  # Empty list: Do not skip any usernames, including bots
+  # Other options (optional):
+  ignore_title_keywords: []  # No title-based skips
+  labels: []  # No label-based filtering
+  drafts: true  # Review drafts if needed
