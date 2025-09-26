@@ -11,6 +11,11 @@ public class IssueComment
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     
+    /// <summary>
+    /// Determines whether the specified object is equal to the current comment
+    /// </summary>
+    /// <param name="obj">The object to compare with the current comment</param>
+    /// <returns>true if the specified object is equal to the current comment; otherwise, false</returns>
     public override bool Equals(object? obj)
     {
         if (obj is IssueComment other)
@@ -24,6 +29,10 @@ public class IssueComment
         return false;
     }
     
+    /// <summary>
+    /// Returns a hash code for the current comment
+    /// </summary>
+    /// <returns>A hash code for the current comment</returns>
     public override int GetHashCode()
     {
         return HashCode.Combine(Id, Author, Body, CreatedAt, UpdatedAt);
@@ -42,6 +51,11 @@ public class IssueAttachment
     public string ContentType { get; set; } = string.Empty;
     public DateTime UploadedAt { get; set; }
     
+    /// <summary>
+    /// Determines whether the specified object is equal to the current attachment
+    /// </summary>
+    /// <param name="obj">The object to compare with the current attachment</param>
+    /// <returns>true if the specified object is equal to the current attachment; otherwise, false</returns>
     public override bool Equals(object? obj)
     {
         if (obj is IssueAttachment other)
@@ -56,6 +70,10 @@ public class IssueAttachment
         return false;
     }
     
+    /// <summary>
+    /// Returns a hash code for the current attachment
+    /// </summary>
+    /// <returns>A hash code for the current attachment</returns>
     public override int GetHashCode()
     {
         return HashCode.Combine(Id, FileName, Url, Size, ContentType, UploadedAt);

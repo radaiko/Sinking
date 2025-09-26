@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace Sinking.Core;
 
 /// <summary>
@@ -7,183 +5,190 @@ namespace Sinking.Core;
 /// </summary>
 public class UnifiedIssue
 {
+    /// <summary>
+    /// Gets or sets the unique identifier for this issue
+    /// </summary>
     public string Id { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Gets or sets the title or summary of the issue
+    /// </summary>
     public string Title { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Gets or sets the detailed description of the issue
+    /// </summary>
     public string Description { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Gets or sets the current status of the issue
+    /// </summary>
     public IssueStatus Status { get; set; } = IssueStatus.New;
+    
+    /// <summary>
+    /// Gets or sets the priority level of the issue
+    /// </summary>
     public IssuePriority Priority { get; set; } = IssuePriority.Medium;
+    
+    /// <summary>
+    /// Gets or sets the person assigned to work on this issue
+    /// </summary>
     public string Assignee { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Gets or sets the list of labels or tags associated with this issue
+    /// </summary>
     public List<string> Labels { get; set; } = new();
+    
+    /// <summary>
+    /// Gets or sets the timestamp when the issue was created
+    /// </summary>
     public DateTime CreatedAt { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the timestamp when the issue was last updated
+    /// </summary>
     public DateTime UpdatedAt { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the timestamp when the issue was completed (if applicable)
+    /// </summary>
     public DateTime? CompletedAt { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the list of comments on this issue
+    /// </summary>
     public List<IssueComment> Comments { get; set; } = new();
+    
+    /// <summary>
+    /// Gets or sets the list of attachments on this issue
+    /// </summary>
     public List<IssueAttachment> Attachments { get; set; } = new();
+    
+    /// <summary>
+    /// Gets or sets the dictionary of custom fields specific to the source system
+    /// </summary>
     public Dictionary<string, object> CustomFields { get; set; } = new();
+    
+    /// <summary>
+    /// Gets or sets the source system where this issue originated
+    /// </summary>
     public SourceSystem SourceSystem { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the unique identifier in the source system
+    /// </summary>
     public string SourceId { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Gets or sets the URL to view this issue in the source system
+    /// </summary>
     public string SourceUrl { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Gets or sets the timestamp when this issue was last synchronized
+    /// </summary>
     public DateTime LastSyncAt { get; set; }
     
     /// <summary>
     /// Creates a UnifiedIssue from a Jira work item
     /// </summary>
+    /// <param name="jiraIssue">The Jira issue data as a dictionary</param>
+    /// <returns>A unified issue representation</returns>
+    /// <exception cref="ArgumentException">Thrown when the input data is not in the expected format</exception>
     public static UnifiedIssue FromJira(object jiraIssue)
     {
-        // For now, this is a placeholder that accepts a dictionary-like structure
-        if (jiraIssue is Dictionary<string, object> jira)
+        if (jiraIssue is not Dictionary<string, object> jira)
         {
-            var issue = new UnifiedIssue
-            {
-                Id = jira.GetValueOrDefault("id", "")?.ToString() ?? "",
-                Title = jira.GetValueOrDefault("summary", "")?.ToString() ?? "",
-                Description = jira.GetValueOrDefault("description", "")?.ToString() ?? "",
-                Status = MapJiraStatus(jira.GetValueOrDefault("status", "")?.ToString() ?? ""),
-                Priority = MapJiraPriority(jira.GetValueOrDefault("priority", "")?.ToString() ?? ""),
-                Assignee = jira.GetValueOrDefault("assignee", "")?.ToString() ?? "",
-                SourceSystem = SourceSystem.Jira,
-                SourceId = jira.GetValueOrDefault("key", "")?.ToString() ?? "",
-                SourceUrl = jira.GetValueOrDefault("url", "")?.ToString() ?? "",
-                CreatedAt = ParseDateTime(jira.GetValueOrDefault("created", DateTime.UtcNow)),
-                UpdatedAt = ParseDateTime(jira.GetValueOrDefault("updated", DateTime.UtcNow)),
-                LastSyncAt = DateTime.UtcNow
-            };
-            
-            // Map labels
-            if (jira.TryGetValue("labels", out var labelsObj) && labelsObj is List<object> labels)
-            {
-                issue.Labels = labels.Select(l => l.ToString() ?? "").Where(l => !string.IsNullOrEmpty(l)).ToList();
-            }
-            
-            // Map comments
-            if (jira.TryGetValue("comments", out var commentsObj) && commentsObj is List<object> comments)
-            {
-                issue.Comments = comments.Select(c => MapJiraComment(c)).Where(c => c != null).ToList()!;
-            }
-            
-            // Map attachments
-            if (jira.TryGetValue("attachments", out var attachmentsObj) && attachmentsObj is List<object> attachments)
-            {
-                issue.Attachments = attachments.Select(a => MapJiraAttachment(a)).Where(a => a != null).ToList()!;
-            }
-            
-            // Map custom fields
-            if (jira.TryGetValue("customFields", out var customFieldsObj) && customFieldsObj is Dictionary<string, object> customFields)
-            {
-                issue.CustomFields = new Dictionary<string, object>(customFields);
-            }
-            
-            return issue;
+            throw new ArgumentException("Invalid Jira issue format", nameof(jiraIssue));
         }
         
-        throw new ArgumentException("Invalid Jira issue format", nameof(jiraIssue));
+        var issue = CreateBaseIssue(jira, SourceSystem.Jira);
+        
+        // Set Jira-specific properties
+        issue.Title = jira.GetValueOrDefault(FieldNames.Jira.Summary, "")?.ToString() ?? "";
+        issue.Status = SourceSystemMappers.MapJiraStatus(jira.GetValueOrDefault(FieldNames.Status, "")?.ToString() ?? "");
+        issue.Priority = SourceSystemMappers.MapJiraPriority(jira.GetValueOrDefault(FieldNames.Priority, "")?.ToString() ?? "");
+        issue.SourceId = jira.GetValueOrDefault(FieldNames.Jira.Key, "")?.ToString() ?? "";
+        issue.CreatedAt = SourceSystemMappers.ParseDateTime(jira.GetValueOrDefault(FieldNames.Jira.Created, DateTime.UtcNow));
+        issue.UpdatedAt = SourceSystemMappers.ParseDateTime(jira.GetValueOrDefault(FieldNames.Jira.Updated, DateTime.UtcNow));
+        
+        // Map collections
+        MapJiraCollections(jira, issue);
+        
+        return issue;
     }
     
     /// <summary>
     /// Creates a UnifiedIssue from a GitHub issue
     /// </summary>
+    /// <param name="githubIssue">The GitHub issue data as a dictionary</param>
+    /// <returns>A unified issue representation</returns>
+    /// <exception cref="ArgumentException">Thrown when the input data is not in the expected format</exception>
     public static UnifiedIssue FromGitHub(object githubIssue)
     {
-        if (githubIssue is Dictionary<string, object> github)
+        if (githubIssue is not Dictionary<string, object> github)
         {
-            var issue = new UnifiedIssue
-            {
-                Id = github.GetValueOrDefault("id", "").ToString() ?? "",
-                Title = github.GetValueOrDefault("title", "").ToString() ?? "",
-                Description = github.GetValueOrDefault("body", "").ToString() ?? "",
-                Status = MapGitHubStatus(github.GetValueOrDefault("state", "").ToString() ?? ""),
-                Priority = IssuePriority.Medium, // GitHub doesn't have built-in priority
-                Assignee = ExtractGitHubAssignee(github.GetValueOrDefault("assignee", null)),
-                SourceSystem = SourceSystem.GitHub,
-                SourceId = github.GetValueOrDefault("number", "").ToString() ?? "",
-                SourceUrl = github.GetValueOrDefault("html_url", "").ToString() ?? "",
-                CreatedAt = ParseDateTime(github.GetValueOrDefault("created_at", DateTime.UtcNow)),
-                UpdatedAt = ParseDateTime(github.GetValueOrDefault("updated_at", DateTime.UtcNow)),
-                LastSyncAt = DateTime.UtcNow
-            };
-            
-            // Map labels
-            if (github.TryGetValue("labels", out var labelsObj) && labelsObj is List<object> labels)
-            {
-                issue.Labels = labels.Select(l => ExtractGitHubLabelName(l)).Where(l => !string.IsNullOrEmpty(l)).ToList();
-            }
-            
-            // Map comments
-            if (github.TryGetValue("comments", out var commentsObj) && commentsObj is List<object> comments)
-            {
-                issue.Comments = comments.Select(c => MapGitHubComment(c)).Where(c => c != null).ToList()!;
-            }
-            
-            // Map custom fields from metadata
-            if (github.TryGetValue("customFields", out var customFieldsObj) && customFieldsObj is Dictionary<string, object> customFields)
-            {
-                issue.CustomFields = new Dictionary<string, object>(customFields);
-            }
-            
-            return issue;
+            throw new ArgumentException("Invalid GitHub issue format", nameof(githubIssue));
         }
+
+        var issue = CreateBaseIssue(github, SourceSystem.GitHub);
         
-        throw new ArgumentException("Invalid GitHub issue format", nameof(githubIssue));
+        // Set GitHub-specific properties
+        issue.Title = github.GetValueOrDefault(FieldNames.Title, "")?.ToString() ?? "";
+        issue.Description = github.GetValueOrDefault(FieldNames.GitHub.Body, "")?.ToString() ?? "";
+        issue.Status = SourceSystemMappers.MapGitHubStatus(github.GetValueOrDefault(FieldNames.GitHub.State, "")?.ToString() ?? "");
+        issue.Priority = IssuePriority.Medium; // GitHub doesn't have built-in priority
+        issue.Assignee = SourceSystemMappers.ExtractGitHubAssignee(github.GetValueOrDefault(FieldNames.Assignee, null!));
+        issue.SourceId = github.GetValueOrDefault(FieldNames.GitHub.Number, "")?.ToString() ?? "";
+        issue.SourceUrl = github.GetValueOrDefault(FieldNames.GitHub.HtmlUrl, "")?.ToString() ?? "";
+        issue.CreatedAt = SourceSystemMappers.ParseDateTime(github.GetValueOrDefault(FieldNames.CreatedAt, DateTime.UtcNow));
+        issue.UpdatedAt = SourceSystemMappers.ParseDateTime(github.GetValueOrDefault(FieldNames.UpdatedAt, DateTime.UtcNow));
+        
+        // Map collections
+        MapGitHubCollections(github, issue);
+        
+        return issue;
     }
     
     /// <summary>
     /// Creates a UnifiedIssue from an Azure DevOps work item
     /// </summary>
+    /// <param name="azureWorkItem">The Azure DevOps work item data as a dictionary</param>
+    /// <returns>A unified issue representation</returns>
+    /// <exception cref="ArgumentException">Thrown when the input data is not in the expected format</exception>
     public static UnifiedIssue FromAzureDevOps(object azureWorkItem)
     {
-        if (azureWorkItem is Dictionary<string, object> azure)
+        if (azureWorkItem is not Dictionary<string, object> azure)
         {
-            var issue = new UnifiedIssue
-            {
-                Id = azure.GetValueOrDefault("id", "").ToString() ?? "",
-                Title = azure.GetValueOrDefault("title", "").ToString() ?? "",
-                Description = azure.GetValueOrDefault("description", "").ToString() ?? "",
-                Status = MapAzureStatus(azure.GetValueOrDefault("state", "").ToString() ?? ""),
-                Priority = MapAzurePriority(azure.GetValueOrDefault("priority", "").ToString() ?? ""),
-                Assignee = azure.GetValueOrDefault("assignedTo", "").ToString() ?? "",
-                SourceSystem = SourceSystem.AzureDevOps,
-                SourceId = azure.GetValueOrDefault("id", "").ToString() ?? "",
-                SourceUrl = azure.GetValueOrDefault("url", "").ToString() ?? "",
-                CreatedAt = ParseDateTime(azure.GetValueOrDefault("createdDate", DateTime.UtcNow)),
-                UpdatedAt = ParseDateTime(azure.GetValueOrDefault("changedDate", DateTime.UtcNow)),
-                LastSyncAt = DateTime.UtcNow
-            };
-            
-            // Map tags as labels
-            if (azure.TryGetValue("tags", out var tagsObj) && tagsObj is string tags)
-            {
-                issue.Labels = tags.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList();
-            }
-            
-            // Map comments
-            if (azure.TryGetValue("comments", out var commentsObj) && commentsObj is List<object> comments)
-            {
-                issue.Comments = comments.Select(c => MapAzureComment(c)).Where(c => c != null).ToList()!;
-            }
-            
-            // Map attachments
-            if (azure.TryGetValue("attachments", out var attachmentsObj) && attachmentsObj is List<object> attachments)
-            {
-                issue.Attachments = attachments.Select(a => MapAzureAttachment(a)).Where(a => a != null).ToList()!;
-            }
-            
-            // Map custom fields
-            if (azure.TryGetValue("customFields", out var customFieldsObj) && customFieldsObj is Dictionary<string, object> customFields)
-            {
-                issue.CustomFields = new Dictionary<string, object>(customFields);
-            }
-            
-            return issue;
+            throw new ArgumentException("Invalid Azure DevOps work item format", nameof(azureWorkItem));
         }
+
+        var issue = CreateBaseIssue(azure, SourceSystem.AzureDevOps);
         
-        throw new ArgumentException("Invalid Azure DevOps work item format", nameof(azureWorkItem));
+        // Set Azure-specific properties
+        issue.Status = SourceSystemMappers.MapAzureStatus(azure.GetValueOrDefault(FieldNames.Azure.State, "")?.ToString() ?? "");
+        issue.Priority = SourceSystemMappers.MapAzurePriority(azure.GetValueOrDefault(FieldNames.Priority, "")?.ToString() ?? "");
+        issue.Assignee = azure.GetValueOrDefault(FieldNames.Azure.AssignedTo, "")?.ToString() ?? "";
+        issue.CreatedAt = SourceSystemMappers.ParseDateTime(azure.GetValueOrDefault(FieldNames.Azure.CreatedDate, DateTime.UtcNow));
+        issue.UpdatedAt = SourceSystemMappers.ParseDateTime(azure.GetValueOrDefault(FieldNames.Azure.ChangedDate, DateTime.UtcNow));
+        
+        // Map collections
+        MapAzureCollections(azure, issue);
+        
+        return issue;
     }
     
     /// <summary>
     /// Compares this issue with another and returns a diff of changes
     /// </summary>
+    /// <param name="other">The other UnifiedIssue to compare with</param>
+    /// <returns>An IssueDiff object containing all detected changes</returns>
+    /// <exception cref="ArgumentNullException">Thrown when other is null</exception>
     public IssueDiff DiffWith(UnifiedIssue other)
     {
+        ArgumentNullException.ThrowIfNull(other);
+        
         var diff = new IssueDiff
         {
             IssueId = Id
@@ -222,6 +227,16 @@ public class UnifiedIssue
         return diff;
     }
     
+    /// <summary>
+    /// Compares a field value between two issues and adds a difference if they differ
+    /// </summary>
+    /// <typeparam name="T">The type of the field being compared</typeparam>
+    /// <param name="diff">The diff object to add the difference to</param>
+    /// <param name="fieldName">The name of the field being compared</param>
+    /// <param name="oldValue">The old value of the field</param>
+    /// <param name="newValue">The new value of the field</param>
+    /// <param name="lastModified">The timestamp when the field was last modified</param>
+    /// <param name="modifiedBy">The source system that made the modification</param>
     private void CompareField<T>(IssueDiff diff, string fieldName, T oldValue, T newValue, DateTime lastModified, SourceSystem modifiedBy)
     {
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
@@ -237,6 +252,14 @@ public class UnifiedIssue
         }
     }
     
+    /// <summary>
+    /// Compares custom fields between two issues and adds differences for any changes
+    /// </summary>
+    /// <param name="diff">The diff object to add differences to</param>
+    /// <param name="oldFields">The old custom fields dictionary</param>
+    /// <param name="newFields">The new custom fields dictionary</param>
+    /// <param name="lastModified">The timestamp when the fields were last modified</param>
+    /// <param name="modifiedBy">The source system that made the modification</param>
     private void CompareCustomFields(IssueDiff diff, Dictionary<string, object> oldFields, Dictionary<string, object> newFields, DateTime lastModified, SourceSystem modifiedBy)
     {
         var allKeys = oldFields.Keys.Union(newFields.Keys);
@@ -289,184 +312,117 @@ public class UnifiedIssue
         diff.RemovedAttachments = oldAttachments.Where(a => !newAttachmentsById.ContainsKey(a.Id)).ToList();
     }
     
-    // Helper methods for mapping source system data
-    private static IssueStatus MapJiraStatus(string status)
+    /// <summary>
+    /// Creates a base UnifiedIssue with common properties
+    /// </summary>
+    private static UnifiedIssue CreateBaseIssue(Dictionary<string, object> data, SourceSystem sourceSystem)
     {
-        return status.ToLowerInvariant() switch
+        return new UnifiedIssue
         {
-            "new" or "open" or "to do" => IssueStatus.New,
-            "in progress" or "in-progress" => IssueStatus.InProgress,
-            "in review" or "review" => IssueStatus.InReview,
-            "done" or "resolved" => IssueStatus.Done,
-            "closed" => IssueStatus.Closed,
-            "cancelled" or "canceled" => IssueStatus.Cancelled,
-            _ => IssueStatus.New
+            Id = data.GetValueOrDefault(FieldNames.Id, "")?.ToString() ?? "",
+            Title = data.GetValueOrDefault(FieldNames.Title, "")?.ToString() ?? "",
+            Description = data.GetValueOrDefault(FieldNames.Description, "")?.ToString() ?? "",
+            Assignee = data.GetValueOrDefault(FieldNames.Assignee, "")?.ToString() ?? "",
+            SourceSystem = sourceSystem,
+            SourceId = data.GetValueOrDefault(FieldNames.Id, "")?.ToString() ?? "",
+            SourceUrl = data.GetValueOrDefault(FieldNames.Url, "")?.ToString() ?? "",
+            LastSyncAt = DateTime.UtcNow
         };
     }
     
-    private static IssuePriority MapJiraPriority(string priority)
+    /// <summary>
+    /// Maps Jira-specific collections (labels, comments, attachments, custom fields)
+    /// </summary>
+    private static void MapJiraCollections(Dictionary<string, object> jira, UnifiedIssue issue)
     {
-        return priority.ToLowerInvariant() switch
+        // Map labels
+        if (jira.TryGetValue(FieldNames.Jira.Labels, out var labelsObj) && labelsObj is List<object> labels)
         {
-            "critical" or "highest" => IssuePriority.Critical,
-            "high" or "major" => IssuePriority.High,
-            "medium" or "normal" => IssuePriority.Medium,
-            "low" or "minor" or "lowest" => IssuePriority.Low,
-            _ => IssuePriority.Medium
-        };
-    }
-    
-    private static IssueStatus MapGitHubStatus(string state)
-    {
-        return state.ToLowerInvariant() switch
-        {
-            "open" => IssueStatus.New,
-            "closed" => IssueStatus.Done,
-            _ => IssueStatus.New
-        };
-    }
-    
-    private static IssueStatus MapAzureStatus(string state)
-    {
-        return state.ToLowerInvariant() switch
-        {
-            "new" => IssueStatus.New,
-            "active" or "approved" => IssueStatus.InProgress,
-            "resolved" => IssueStatus.Done,
-            "closed" => IssueStatus.Closed,
-            "removed" => IssueStatus.Cancelled,
-            _ => IssueStatus.New
-        };
-    }
-    
-    private static IssuePriority MapAzurePriority(string priority)
-    {
-        return priority.ToLowerInvariant() switch
-        {
-            "1" or "critical" => IssuePriority.Critical,
-            "2" or "high" => IssuePriority.High,
-            "3" or "medium" => IssuePriority.Medium,
-            "4" or "low" => IssuePriority.Low,
-            _ => IssuePriority.Medium
-        };
-    }
-    
-    private static string ExtractGitHubAssignee(object? assignee)
-    {
-        if (assignee is Dictionary<string, object> assigneeDict)
-        {
-            var login = assigneeDict.GetValueOrDefault("login", "")?.ToString() ?? "";
-            return string.IsNullOrWhiteSpace(login) ? "" : login.Trim();
+            issue.Labels = labels.Select(l => l.ToString() ?? "").Where(l => !string.IsNullOrEmpty(l)).ToList();
         }
-        return "";
-    }
-    
-    private static string ExtractGitHubLabelName(object label)
-    {
-        if (label is Dictionary<string, object> labelDict)
+        
+        // Map comments
+        if (jira.TryGetValue(FieldNames.Jira.Comments, out var commentsObj) && commentsObj is List<object> comments)
         {
-            return labelDict.GetValueOrDefault("name", "").ToString() ?? "";
+            issue.Comments = comments.Select(CommentAndAttachmentMappers.MapJiraComment)
+                                  .Where(c => c != null)
+                                  .ToList()!;
         }
-        return label.ToString() ?? "";
-    }
-    
-    private static IssueComment? MapJiraComment(object comment)
-    {
-        if (comment is Dictionary<string, object> commentDict)
+        
+        // Map attachments
+        if (jira.TryGetValue(FieldNames.Jira.Attachments, out var attachmentsObj) && attachmentsObj is List<object> attachments)
         {
-            return new IssueComment
-            {
-                Id = commentDict.GetValueOrDefault("id", "").ToString() ?? "",
-                Author = commentDict.GetValueOrDefault("author", "").ToString() ?? "",
-                Body = commentDict.GetValueOrDefault("body", "").ToString() ?? "",
-                CreatedAt = ParseDateTime(commentDict.GetValueOrDefault("created", DateTime.UtcNow)),
-                UpdatedAt = ParseDateTime(commentDict.GetValueOrDefault("updated", DateTime.UtcNow))
-            };
+            issue.Attachments = attachments.Select(CommentAndAttachmentMappers.MapJiraAttachment)
+                                         .Where(a => a != null)
+                                         .ToList()!;
         }
-        return null;
-    }
-    
-    private static IssueComment? MapGitHubComment(object comment)
-    {
-        if (comment is Dictionary<string, object> commentDict)
+        
+        // Map custom fields
+        if (jira.TryGetValue(FieldNames.Jira.CustomFields, out var customFieldsObj) && customFieldsObj is Dictionary<string, object> customFields)
         {
-            return new IssueComment
-            {
-                Id = commentDict.GetValueOrDefault("id", "").ToString() ?? "",
-                Author = ExtractGitHubCommentAuthor(commentDict.GetValueOrDefault("user", null)),
-                Body = commentDict.GetValueOrDefault("body", "").ToString() ?? "",
-                CreatedAt = ParseDateTime(commentDict.GetValueOrDefault("created_at", DateTime.UtcNow)),
-                UpdatedAt = ParseDateTime(commentDict.GetValueOrDefault("updated_at", DateTime.UtcNow))
-            };
+            issue.CustomFields = new Dictionary<string, object>(customFields);
         }
-        return null;
     }
     
-    private static IssueComment? MapAzureComment(object comment)
+    /// <summary>
+    /// Maps GitHub-specific collections (labels, comments, custom fields)
+    /// </summary>
+    private static void MapGitHubCollections(Dictionary<string, object> github, UnifiedIssue issue)
     {
-        if (comment is Dictionary<string, object> commentDict)
+        // Map labels
+        if (github.TryGetValue(FieldNames.GitHub.Labels, out var labelsObj) && labelsObj is List<object> labels)
         {
-            return new IssueComment
-            {
-                Id = commentDict.GetValueOrDefault("id", "").ToString() ?? "",
-                Author = commentDict.GetValueOrDefault("createdBy", "").ToString() ?? "",
-                Body = commentDict.GetValueOrDefault("text", "").ToString() ?? "",
-                CreatedAt = ParseDateTime(commentDict.GetValueOrDefault("createdDate", DateTime.UtcNow)),
-                UpdatedAt = ParseDateTime(commentDict.GetValueOrDefault("modifiedDate", DateTime.UtcNow))
-            };
+            issue.Labels = labels.Select(SourceSystemMappers.ExtractGitHubLabelName)
+                                .Where(l => !string.IsNullOrEmpty(l))
+                                .ToList();
         }
-        return null;
-    }
-    
-    private static string ExtractGitHubCommentAuthor(object? user)
-    {
-        if (user is Dictionary<string, object> userDict)
+        
+        // Map comments
+        if (github.TryGetValue(FieldNames.GitHub.Comments, out var commentsObj) && commentsObj is List<object> comments)
         {
-            return userDict.GetValueOrDefault("login", "").ToString() ?? "";
+            issue.Comments = comments.Select(CommentAndAttachmentMappers.MapGitHubComment)
+                                   .Where(c => c != null)
+                                   .ToList()!;
         }
-        return "";
-    }
-    
-    private static IssueAttachment? MapJiraAttachment(object attachment)
-    {
-        if (attachment is Dictionary<string, object> attachmentDict)
+        
+        // Map custom fields from metadata
+        if (github.TryGetValue(FieldNames.Jira.CustomFields, out var customFieldsObj) && customFieldsObj is Dictionary<string, object> customFields)
         {
-            return new IssueAttachment
-            {
-                Id = attachmentDict.GetValueOrDefault("id", "").ToString() ?? "",
-                FileName = attachmentDict.GetValueOrDefault("filename", "").ToString() ?? "",
-                Url = attachmentDict.GetValueOrDefault("content", "").ToString() ?? "",
-                Size = Convert.ToInt64(attachmentDict.GetValueOrDefault("size", 0L)),
-                ContentType = attachmentDict.GetValueOrDefault("mimeType", "").ToString() ?? "",
-                UploadedAt = ParseDateTime(attachmentDict.GetValueOrDefault("created", DateTime.UtcNow))
-            };
+            issue.CustomFields = new Dictionary<string, object>(customFields);
         }
-        return null;
     }
     
-    private static IssueAttachment? MapAzureAttachment(object attachment)
+    /// <summary>
+    /// Maps Azure DevOps-specific collections (tags as labels, comments, attachments, custom fields)
+    /// </summary>
+    private static void MapAzureCollections(Dictionary<string, object> azure, UnifiedIssue issue)
     {
-        if (attachment is Dictionary<string, object> attachmentDict)
+        // Map tags as labels
+        if (azure.TryGetValue(FieldNames.Azure.Tags, out var tagsObj) && tagsObj is string tags)
         {
-            return new IssueAttachment
-            {
-                Id = attachmentDict.GetValueOrDefault("id", "").ToString() ?? "",
-                FileName = attachmentDict.GetValueOrDefault("name", "").ToString() ?? "",
-                Url = attachmentDict.GetValueOrDefault("url", "").ToString() ?? "",
-                Size = Convert.ToInt64(attachmentDict.GetValueOrDefault("size", 0L)),
-                ContentType = attachmentDict.GetValueOrDefault("contentType", "").ToString() ?? "",
-                UploadedAt = ParseDateTime(attachmentDict.GetValueOrDefault("uploadedDate", DateTime.UtcNow))
-            };
+            issue.Labels = tags.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList();
         }
-        return null;
-    }
-    
-    private static DateTime ParseDateTime(object dateObj)
-    {
-        if (dateObj is DateTime dt)
-            return dt;
-        if (dateObj is string dateStr && DateTime.TryParse(dateStr, out var parsed))
-            return parsed;
-        return DateTime.UtcNow;
+        
+        // Map comments
+        if (azure.TryGetValue(FieldNames.Azure.Comments, out var commentsObj) && commentsObj is List<object> comments)
+        {
+            issue.Comments = comments.Select(CommentAndAttachmentMappers.MapAzureComment)
+                                   .Where(c => c != null)
+                                   .ToList()!;
+        }
+        
+        // Map attachments
+        if (azure.TryGetValue(FieldNames.Azure.Attachments, out var attachmentsObj) && attachmentsObj is List<object> attachments)
+        {
+            issue.Attachments = attachments.Select(CommentAndAttachmentMappers.MapAzureAttachment)
+                                         .Where(a => a != null)
+                                         .ToList()!;
+        }
+        
+        // Map custom fields
+        if (azure.TryGetValue(FieldNames.Azure.CustomFields, out var customFieldsObj) && customFieldsObj is Dictionary<string, object> customFields)
+        {
+            issue.CustomFields = new Dictionary<string, object>(customFields);
+        }
     }
 }
