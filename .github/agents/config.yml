@@ -1,0 +1,56 @@
+# GitHub Copilot Agent Configuration for Sinking
+
+# Project metadata
+project:
+  name: "Sinking"
+  type: ".NET/C#"
+  description: "2-way sync service between Jira, GitHub, and Azure DevOps issues"
+  stage: "early development"
+  license: "MIT"
+
+# Primary technology stack
+tech_stack:
+  language: "C#"
+  framework: ".NET"
+  database: "SQLite"
+  logging: "Microsoft.Extensions.Logging"
+  build_system: "MSBuild"
+  ide: "Visual Studio"
+  package_manager: "NuGet"
+  testing: "xUnit"
+
+# Repository structure
+structure:
+  source: "src/"
+  solution: "src/Sinking.sln"
+  gitignore: "Visual Studio template"
+
+# Development guidelines
+guidelines:
+  coding_standards: ".NET conventions"
+  naming: "PascalCase for public, camelCase for private"
+  documentation: "XML docs for public APIs"
+  testing: "Unit tests for conversions and sync logic"
+  commits: "Atomic and descriptive"
+  architecture: "Clean separation: services, models, database, logging"
+
+# Core functionality
+features:
+  sync_targets: ["Jira", "GitHub", "Azure DevOps"]
+  sync_type: "2-way bidirectional"
+  data_model: "UnifiedIssue with Title, Description, Status, Priority, etc."
+  conflict_resolution: "last-modified wins"
+  storage: "SQLite (UnifiedIssues, SyncMappings, SyncLogs)"
+  configuration: "appsettings.json"
+
+# Agent instructions
+instructions:
+  primary: "copilot-instructions.md"
+  coding: "agents/coding.md"
+  development: "agents/development.md"
+
+# Tools and integrations
+integrations:
+  code_review: "CodeRabbit"
+  version_control: "Git"
+  build: "MSBuild/.NET CLI"
