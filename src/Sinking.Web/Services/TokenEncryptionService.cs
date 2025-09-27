@@ -35,8 +35,7 @@ public class TokenEncryptionService : ITokenEncryptionService
 
     public string EncryptToken(string plainTextToken)
     {
-        if (string.IsNullOrEmpty(plainTextToken))
-            return string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(plainTextToken);
 
         try
         {
@@ -63,8 +62,7 @@ public class TokenEncryptionService : ITokenEncryptionService
 
     public string DecryptToken(string encryptedToken)
     {
-        if (string.IsNullOrEmpty(encryptedToken))
-            return string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(encryptedToken);
 
         try
         {

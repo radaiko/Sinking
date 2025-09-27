@@ -28,15 +28,17 @@ public interface IChangeLogService
         object? oldValues = null,
         object? newValues = null,
         string? ipAddress = null,
-        string? userAgent = null);
+        string? userAgent = null,
+        CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Get change history for a specific entity
     /// </summary>
     /// <param name="entityType">Type of entity</param>
     /// <param name="entityId">ID of the entity</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of changes for the entity</returns>
-    Task<List<ChangeLog>> GetEntityChangeHistoryAsync(string entityType, int entityId);
+    Task<List<ChangeLog>> GetEntityChangeHistoryAsync(string entityType, int entityId, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Get all changes made by a specific user
@@ -44,6 +46,7 @@ public interface IChangeLogService
     /// <param name="userId">User ID</param>
     /// <param name="pageNumber">Page number for pagination</param>
     /// <param name="pageSize">Page size for pagination</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of changes made by the user</returns>
-    Task<List<ChangeLog>> GetUserChangesAsync(string userId, int pageNumber = 1, int pageSize = 50);
+    Task<List<ChangeLog>> GetUserChangesAsync(string userId, int pageNumber = 1, int pageSize = 50, CancellationToken cancellationToken = default);
 }

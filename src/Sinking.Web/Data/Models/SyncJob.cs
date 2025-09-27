@@ -10,45 +10,49 @@ public class SyncJob
 {
     public int Id { get; set; }
     
-    [Required]
-    [StringLength(100)]
+    [Required(ErrorMessage = "Job name is required")]
+    [StringLength(100, MinimumLength = 1, ErrorMessage = "Job name must be between 1 and 100 characters")]
     public string Name { get; set; } = string.Empty;
     
-    [StringLength(500)]
+    [StringLength(500, ErrorMessage = "Description cannot exceed 500 characters")]
     public string? Description { get; set; }
     
-    [Required]
+    [Required(ErrorMessage = "Source system is required")]
     public SourceSystem SourceSystem { get; set; }
     
-    [Required]
+    [Required(ErrorMessage = "Target system is required")]
     public SourceSystem TargetSystem { get; set; }
     
-    [Required]
+    [Required(ErrorMessage = "Source token is required")]
+    [Range(1, int.MaxValue, ErrorMessage = "Source token ID must be valid")]
     public int SourceTokenId { get; set; }
     public PersonalAccessToken SourceToken { get; set; } = null!;
     
-    [Required]
+    [Required(ErrorMessage = "Target token is required")]
+    [Range(1, int.MaxValue, ErrorMessage = "Target token ID must be valid")]
     public int TargetTokenId { get; set; }
     public PersonalAccessToken TargetToken { get; set; } = null!;
     
     /// <summary>
     /// Source project/repository identifier
     /// </summary>
-    [Required]
-    [StringLength(200)]
+    [Required(ErrorMessage = "Source project is required")]
+    [StringLength(200, MinimumLength = 1, ErrorMessage = "Source project must be between 1 and 200 characters")]
     public string SourceProject { get; set; } = string.Empty;
     
     /// <summary>
     /// Target project/repository identifier
     /// </summary>
-    [Required]
-    [StringLength(200)]
+    [Required(ErrorMessage = "Target project is required")]
+    [StringLength(200, MinimumLength = 1, ErrorMessage = "Target project must be between 1 and 200 characters")]
     public string TargetProject { get; set; } = string.Empty;
     
     /// <summary>
     /// Cron expression for scheduled sync
     /// </summary>
-    [StringLength(50)]
+    [StringLength(50, ErrorMessage = "Cron expression cannot exceed 50 characters")]
+    [RegularExpression(@"^(\*|\d+|\d+-\d+|\*/\d+|\d+/\d+)((\s+(\*|\d+|\d+-\d+|\*/\d+|\d+/\d+)){4})?$", 
+        ErrorMessage = "Please enter a valid cron expression")]
     public string? CronExpression { get; set; }
     
     public bool IsActive { get; set; } = true;

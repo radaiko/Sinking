@@ -28,8 +28,17 @@ public class ChangeLogService : IChangeLogService
         object? oldValues = null,
         object? newValues = null,
         string? ipAddress = null,
-        string? userAgent = null)
+        string? userAgent = null,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(entityType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(changeType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(description);
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+        
+        if (entityId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(entityId), "Entity ID must be positive");
+
         try
         {
             var changeLog = new ChangeLog
@@ -47,7 +56,7 @@ public class ChangeLogService : IChangeLogService
             };
 
             _context.ChangeLogs.Add(changeLog);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             
             _logger.LogInformation("Change logged: {EntityType} {EntityId} - {ChangeType} by user {UserId}", 
                 entityType, entityId, changeType, userId);
@@ -59,15 +68,20 @@ public class ChangeLogService : IChangeLogService
         }
     }
 
-    public async Task<List<ChangeLog>> GetEntityChangeHistoryAsync(string entityType, int entityId)
+    public async Task<List<ChangeLog>> GetEntityChangeHistoryAsync(string entityType, int entityId, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(entityType);
+        
+        if (entityId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(entityId), "Entity ID must be positive");
+            
         try
         {
             return await _context.ChangeLogs
                 .Include(c => c.User)
                 .Where(c => c.EntityType == entityType && c.EntityId == entityId)
                 .OrderByDescending(c => c.ChangedAt)
-                .ToListAsync();
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -76,8 +90,10 @@ public class ChangeLogService : IChangeLogService
         }
     }
 
-    public async Task<List<ChangeLog>> GetUserChangesAsync(string userId, int pageNumber = 1, int pageSize = 50)
+    public async Task<List<ChangeLog>> GetUserChangesAsync(string userId, int pageNumber = 1, int pageSize = 50, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+        
         try
         {
             if (pageNumber < 1) pageNumber = 1;
@@ -89,7 +105,7 @@ public class ChangeLogService : IChangeLogService
                 .OrderByDescending(c => c.ChangedAt)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .ToListAsync();
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
