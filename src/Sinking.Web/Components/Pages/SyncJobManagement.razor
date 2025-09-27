@@ -1,0 +1,371 @@
+@page "/sync-jobs"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Sinking.Web.Data
+@using Sinking.Web.Data.Models
+@using Sinking.Web.Services
+@using Sinking.Core
+@inject ApplicationDbContext DbContext
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IChangeLogService ChangeLogService
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Sync Jobs - Sinking</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1>
+                        <i class="bi bi-arrow-repeat me-2"></i>
+                        Sync Jobs
+                    </h1>
+                    <p class="text-muted">Manage synchronization jobs between systems</p>
+                </div>
+                <button class="btn btn-primary" @onclick="ShowAddJobModal">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Add Sync Job
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (syncJobs.Any())
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Source → Target</th>
+                                        <th>Status</th>
+                                        <th>Schedule</th>
+                                        <th>Last Sync</th>
+                                        <th>Next Sync</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var job in syncJobs)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@job.Name</strong>
+                                                @if (!string.IsNullOrEmpty(job.Description))
+                                                {
+                                                    <br><small class="text-muted">@job.Description</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <span class="badge @GetSystemBadgeClass(job.SourceSystem) me-2">
+                                                        @job.SourceSystem
+                                                    </span>
+                                                    <i class="bi bi-arrow-right mx-2"></i>
+                                                    <span class="badge @GetSystemBadgeClass(job.TargetSystem)">
+                                                        @job.TargetSystem
+                                                    </span>
+                                                </div>
+                                                <small class="text-muted d-block mt-1">
+                                                    @job.SourceProject → @job.TargetProject
+                                                </small>
+                                            </td>
+                                            <td>
+                                                @if (!job.IsActive)
+                                                {
+                                                    <span class="badge bg-secondary">Inactive</span>
+                                                }
+                                                else if (job.IsPaused)
+                                                {
+                                                    <span class="badge bg-warning">Paused</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-success">Active</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(job.CronExpression))
+                                                {
+                                                    <small class="font-monospace">@job.CronExpression</small>
+                                                }
+                                                else
+                                                {
+                                                    <small class="text-muted">Manual</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (job.LastSyncAt.HasValue)
+                                                {
+                                                    <small>@job.LastSyncAt.Value.ToString("MM/dd/yyyy HH:mm")</small>
+                                                }
+                                                else
+                                                {
+                                                    <small class="text-muted">Never</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (job.NextSyncAt.HasValue && job.IsActive && !job.IsPaused)
+                                                {
+                                                    <small>@job.NextSyncAt.Value.ToString("MM/dd/yyyy HH:mm")</small>
+                                                }
+                                                else
+                                                {
+                                                    <small class="text-muted">-</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    @if (job.IsActive && !job.IsPaused)
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-warning" @onclick="() => PauseJob(job.Id)" title="Pause">
+                                                            <i class="bi bi-pause"></i>
+                                                        </button>
+                                                    }
+                                                    else if (job.IsActive && job.IsPaused)
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-success" @onclick="() => ResumeJob(job.Id)" title="Resume">
+                                                            <i class="bi bi-play"></i>
+                                                        </button>
+                                                    }
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => RunJobNow(job.Id)" title="Run Now">
+                                                        <i class="bi bi-play-circle"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditJobModal(job)" title="Edit">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteJob(job.Id)" title="Delete">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center">
+                <div class="card">
+                    <div class="card-body py-5">
+                        <i class="bi bi-arrow-repeat display-1 text-muted mb-4"></i>
+                        <h3>No Sync Jobs</h3>
+                        <p class="text-muted mb-4">
+                            You haven't created any synchronization jobs yet. 
+                            Create jobs to sync issues between Jira, GitHub, and Azure DevOps.
+                        </p>
+                        <button class="btn btn-primary" @onclick="ShowAddJobModal">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            Create Your First Job
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<SyncJob> syncJobs = new();
+    private bool showJobModal = false;
+    private bool isEditMode = false;
+    private bool isLoading = false;
+    private SyncJobModel jobModel = new();
+    private string currentUserId = string.Empty;
+    private List<PersonalAccessToken> availableTokens = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUserId = authState.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+        
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        syncJobs = await DbContext.SyncJobs
+            .Include(j => j.SourceToken)
+            .Include(j => j.TargetToken)
+            .Where(j => j.UserId == currentUserId)
+            .OrderBy(j => j.Name)
+            .ToListAsync();
+
+        availableTokens = await DbContext.PersonalAccessTokens
+            .Where(t => t.UserId == currentUserId)
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+    }
+
+    private void ShowAddJobModal()
+    {
+        jobModel = new SyncJobModel();
+        isEditMode = false;
+        showJobModal = true;
+    }
+
+    private void ShowEditJobModal(SyncJob job)
+    {
+        jobModel = new SyncJobModel
+        {
+            Id = job.Id,
+            Name = job.Name,
+            Description = job.Description,
+            SourceSystem = job.SourceSystem,
+            TargetSystem = job.TargetSystem,
+            SourceTokenId = job.SourceTokenId,
+            TargetTokenId = job.TargetTokenId,
+            SourceProject = job.SourceProject,
+            TargetProject = job.TargetProject,
+            CronExpression = job.CronExpression
+        };
+        isEditMode = true;
+        showJobModal = true;
+    }
+
+    private async Task PauseJob(int jobId)
+    {
+        var job = await DbContext.SyncJobs.FindAsync(jobId);
+        if (job == null) return;
+
+        job.IsPaused = true;
+        job.UpdatedAt = DateTime.UtcNow;
+        
+        await DbContext.SaveChangesAsync();
+        
+        await ChangeLogService.LogChangeAsync(
+            "SyncJob", job.Id, ChangeTypes.Pause,
+            $"Paused sync job '{job.Name}'",
+            currentUserId);
+        
+        await LoadDataAsync();
+    }
+
+    private async Task ResumeJob(int jobId)
+    {
+        var job = await DbContext.SyncJobs.FindAsync(jobId);
+        if (job == null) return;
+
+        job.IsPaused = false;
+        job.UpdatedAt = DateTime.UtcNow;
+        // Set next sync time based on cron expression (simplified for demo)
+        job.NextSyncAt = DateTime.UtcNow.AddHours(1);
+        
+        await DbContext.SaveChangesAsync();
+        
+        await ChangeLogService.LogChangeAsync(
+            "SyncJob", job.Id, ChangeTypes.Resume,
+            $"Resumed sync job '{job.Name}'",
+            currentUserId);
+        
+        await LoadDataAsync();
+    }
+
+    private async Task RunJobNow(int jobId)
+    {
+        var job = await DbContext.SyncJobs.FindAsync(jobId);
+        if (job == null) return;
+
+        // Create a new job execution (demo implementation)
+        var execution = new SyncJobExecution
+        {
+            SyncJobId = job.Id,
+            Status = SyncJobStatus.Queued,
+            StartedAt = DateTime.UtcNow,
+            TotalItems = 0,
+            ProcessedItems = 0,
+            FailedItems = 0
+        };
+
+        DbContext.SyncJobExecutions.Add(execution);
+        
+        job.LastSyncAt = DateTime.UtcNow;
+        job.NextSyncAt = DateTime.UtcNow.AddHours(1); // Simple scheduling for demo
+        
+        await DbContext.SaveChangesAsync();
+        
+        await ChangeLogService.LogChangeAsync(
+            "SyncJob", job.Id, ChangeTypes.RunSync,
+            $"Manually triggered sync job '{job.Name}'",
+            currentUserId);
+        
+        await LoadDataAsync();
+    }
+
+    private async Task DeleteJob(int jobId)
+    {
+        var job = await DbContext.SyncJobs.FindAsync(jobId);
+        if (job == null) return;
+
+        var oldValues = new { job.Name, job.SourceSystem, job.TargetSystem };
+
+        DbContext.SyncJobs.Remove(job);
+        await DbContext.SaveChangesAsync();
+        
+        await ChangeLogService.LogChangeAsync(
+            "SyncJob", jobId, ChangeTypes.Delete,
+            $"Deleted sync job '{job.Name}'",
+            currentUserId, oldValues, null);
+        
+        await LoadDataAsync();
+    }
+
+    private static string GetSystemBadgeClass(SourceSystem system) => system switch
+    {
+        SourceSystem.Jira => "bg-primary",
+        SourceSystem.GitHub => "bg-dark",
+        SourceSystem.AzureDevOps => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    public class SyncJobModel
+    {
+        public int Id { get; set; }
+        
+        [Required]
+        [StringLength(100)]
+        public string Name { get; set; } = string.Empty;
+        
+        [StringLength(500)]
+        public string? Description { get; set; }
+        
+        [Required]
+        public SourceSystem SourceSystem { get; set; }
+        
+        [Required]
+        public SourceSystem TargetSystem { get; set; }
+        
+        [Required]
+        public int SourceTokenId { get; set; }
+        
+        [Required]
+        public int TargetTokenId { get; set; }
+        
+        [Required]
+        [StringLength(200)]
+        public string SourceProject { get; set; } = string.Empty;
+        
+        [Required]
+        [StringLength(200)]
+        public string TargetProject { get; set; } = string.Empty;
+        
+        [StringLength(50)]
+        public string? CronExpression { get; set; }
+    }
+}
