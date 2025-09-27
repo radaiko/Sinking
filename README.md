@@ -8,6 +8,8 @@
 
 Sinking is a comprehensive .NET 9 web application that enables bidirectional synchronization of issues, work items, and workflows across multiple project management platforms. Whether you're working with Jira tickets, GitHub issues, or Azure DevOps work items, Sinking provides a unified interface to keep your teams in sync.
 
+![Sinking Dashboard](https://github.com/user-attachments/assets/a11cf0ed-c12f-4cd2-b5c2-70ddc7c7f24d)
+
 ### ✨ Key Features
 
 - **🔐 Secure Token Management**: Encrypted storage of Personal Access Tokens for all supported systems
