@@ -89,7 +89,7 @@ internal static class CommentAndAttachmentMappers
         return new IssueAttachment
         {
             Id = attachmentDict.GetValueOrDefault(FieldNames.Id, "")?.ToString() ?? "",
-            FileName = attachmentDict.GetValueOrDefault(FieldNames.GitHub.Name, "")?.ToString() ?? "",
+            FileName = attachmentDict.GetValueOrDefault(FieldNames.Azure.FileName, "")?.ToString() ?? "",
             Url = attachmentDict.GetValueOrDefault(FieldNames.Url, "")?.ToString() ?? "",
             Size = Convert.ToInt64(attachmentDict.GetValueOrDefault(FieldNames.Jira.Size, 0L)),
             ContentType = attachmentDict.GetValueOrDefault(FieldNames.Azure.ContentType, "")?.ToString() ?? "",
