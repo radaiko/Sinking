@@ -65,5 +65,6 @@ internal static class FieldNames
         public const string ModifiedDate = "modifiedDate";
         public const string ContentType = "contentType";
         public const string UploadedDate = "uploadedDate";
+        public const string FileName = "name";
     }
 }
