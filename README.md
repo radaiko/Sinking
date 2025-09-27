@@ -2,7 +2,7 @@
 
 🔄 **A powerful 2-way synchronization service for seamlessly integrating issues and workflows between Jira, GitHub, and Azure DevOps.**
 
-![Sinking Homepage](https://github.com/user-attachments/assets/5616031d-a6f9-4f53-9397-f81201ab7e23)
+![Sinking Homepage](https://github.com/user-attachments/assets/a11cf0ed-c12f-4cd2-b5c2-70ddc7c7f24d)
 
 ## 🚀 Overview
 
@@ -130,7 +130,7 @@ The application uses SQLite by default with the following configuration in `apps
 - The first registered user gets administrator privileges
 
 ### 2. Configure Access Tokens
-![Token Management](https://github.com/user-attachments/assets/b9190a46-6bf7-442f-a25e-58ad94dcf485)
+![Token Management](https://github.com/user-attachments/assets/56ab0b89-5059-4fb5-a987-947aba4317b5)
 
 Add Personal Access Tokens for your systems:
 - **Jira**: Create a token in your Atlassian account settings
