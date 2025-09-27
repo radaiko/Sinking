@@ -178,6 +178,123 @@
     }
 </div>
 
+<!-- Add/Edit Sync Job Modal -->
+<div class="modal fade @(showJobModal ? "show" : "")" 
+     style="display: @(showJobModal ? "block" : "none")" 
+     tabindex="-1" 
+     aria-hidden="@(!showJobModal)">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    @(isEditMode ? "Edit" : "Add") Sync Job
+                </h5>
+                <button type="button" class="btn-close" @onclick="HideJobModal"></button>
+            </div>
+            <EditForm Model="jobModel" OnValidSubmit="SaveJob">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Name *</label>
+                            <InputText class="form-control" @bind-Value="jobModel.Name" placeholder="e.g., 'Jira to GitHub Sync'" />
+                            <ValidationMessage For="() => jobModel.Name" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Cron Expression</label>
+                            <InputText class="form-control" @bind-Value="jobModel.CronExpression" placeholder="0 0 * * *" />
+                            <small class="form-text text-muted">Leave empty for manual runs only</small>
+                            <ValidationMessage For="() => jobModel.CronExpression" />
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <InputTextArea class="form-control" @bind-Value="jobModel.Description" rows="3" 
+                                      placeholder="Describe what this sync job does..." />
+                        <ValidationMessage For="() => jobModel.Description" />
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Source System *</label>
+                            <InputSelect class="form-select" @bind-Value="jobModel.SourceSystem">
+                                <option value="">-- Select Source System --</option>
+                                <option value="@SourceSystem.Jira">Jira</option>
+                                <option value="@SourceSystem.GitHub">GitHub</option>
+                                <option value="@SourceSystem.AzureDevOps">Azure DevOps</option>
+                            </InputSelect>
+                            <ValidationMessage For="() => jobModel.SourceSystem" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Target System *</label>
+                            <InputSelect class="form-select" @bind-Value="jobModel.TargetSystem">
+                                <option value="">-- Select Target System --</option>
+                                <option value="@SourceSystem.Jira">Jira</option>
+                                <option value="@SourceSystem.GitHub">GitHub</option>
+                                <option value="@SourceSystem.AzureDevOps">Azure DevOps</option>
+                            </InputSelect>
+                            <ValidationMessage For="() => jobModel.TargetSystem" />
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Source Token *</label>
+                            <InputSelect class="form-select" @bind-Value="jobModel.SourceTokenId">
+                                <option value="0">-- Select Source Token --</option>
+                                @foreach (var token in availableTokens.Where(t => t.SourceSystem == jobModel.SourceSystem))
+                                {
+                                    <option value="@token.Id">@token.Name (@token.BaseUrl)</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => jobModel.SourceTokenId" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Target Token *</label>
+                            <InputSelect class="form-select" @bind-Value="jobModel.TargetTokenId">
+                                <option value="0">-- Select Target Token --</option>
+                                @foreach (var token in availableTokens.Where(t => t.SourceSystem == jobModel.TargetSystem))
+                                {
+                                    <option value="@token.Id">@token.Name (@token.BaseUrl)</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="() => jobModel.TargetTokenId" />
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Source Project *</label>
+                            <InputText class="form-control" @bind-Value="jobModel.SourceProject" placeholder="e.g., 'PROJECT-KEY' or 'owner/repo'" />
+                            <ValidationMessage For="() => jobModel.SourceProject" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Target Project *</label>
+                            <InputText class="form-control" @bind-Value="jobModel.TargetProject" placeholder="e.g., 'PROJECT-KEY' or 'owner/repo'" />
+                            <ValidationMessage For="() => jobModel.TargetProject" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideJobModal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i>
+                        @(isEditMode ? "Update" : "Create") Job
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@if (showJobModal)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
 @code {
     private List<SyncJob> syncJobs = new();
     private bool showJobModal = false;
