@@ -29,7 +29,7 @@ Sinking is a comprehensive .NET 9 web application that enables bidirectional syn
 
 Sinking follows a clean architecture approach with the following key components:
 
-```
+```text
 src/
 ├── Sinking.Core/              # Core business logic and domain models
 │   ├── Models.cs              # Issue comments and attachments models
