@@ -108,7 +108,7 @@ The application uses SQLite by default with the following configuration in `apps
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "DataSource=Data\\app.db;Cache=Shared"
+    "DefaultConnection": "DataSource=Data/app.db;Cache=Shared"
   },
   "Encryption": {
     "Key": "DefaultKey32BytesLongForSinkingApp",
