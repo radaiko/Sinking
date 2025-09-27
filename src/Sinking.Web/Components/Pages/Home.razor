@@ -1,0 +1,270 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Sinking.Web.Data
+@using Sinking.Web.Data.Models
+@inject ApplicationDbContext DbContext
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Sinking Dashboard</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="bi bi-speedometer2 me-2"></i>
+                Sinking Dashboard
+            </h1>
+            <p class="lead">Synchronization service management for Jira, GitHub, and Azure DevOps</p>
+        </div>
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title">@tokenCount</h4>
+                                    <p class="card-text">Access Tokens</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-key-fill fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <a href="/tokens" class="text-white text-decoration-none">
+                                <small>Manage tokens <i class="bi bi-arrow-right"></i></small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title">@activeJobCount</h4>
+                                    <p class="card-text">Active Jobs</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-arrow-repeat fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <a href="/sync-jobs" class="text-white text-decoration-none">
+                                <small>Manage jobs <i class="bi bi-arrow-right"></i></small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title">@runningJobCount</h4>
+                                    <p class="card-text">Running Now</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-activity fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <a href="/job-monitor" class="text-white text-decoration-none">
+                                <small>View monitor <i class="bi bi-arrow-right"></i></small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title">@recentFailures</h4>
+                                    <p class="card-text">Recent Failures</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-exclamation-triangle-fill fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <a href="/job-monitor" class="text-white text-decoration-none">
+                                <small>View details <i class="bi bi-arrow-right"></i></small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (recentExecutions.Any())
+            {
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-clock-history me-2"></i>
+                                    Recent Job Executions
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Job Name</th>
+                                                <th>Status</th>
+                                                <th>Started</th>
+                                                <th>Duration</th>
+                                                <th>Items Processed</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var execution in recentExecutions)
+                                            {
+                                                <tr>
+                                                    <td>@execution.SyncJob.Name</td>
+                                                    <td>
+                                                        <span class="badge @GetStatusBadgeClass(execution.Status)">
+                                                            @execution.Status
+                                                        </span>
+                                                    </td>
+                                                    <td>@execution.StartedAt.ToString("MM/dd/yyyy HH:mm")</td>
+                                                    <td>
+                                                        @if (execution.CompletedAt.HasValue)
+                                                        {
+                                                            @((execution.CompletedAt.Value - execution.StartedAt).ToString(@"hh\:mm\:ss"))
+                                                        }
+                                                        else if (execution.Status == SyncJobStatus.Running)
+                                                        {
+                                                            <span class="text-muted">Running...</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">-</span>
+                                                        }
+                                                    </td>
+                                                    <td>@execution.ProcessedItems / @execution.TotalItems</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </Authorized>
+        <NotAuthorized>
+            <div class="row justify-content-center">
+                <div class="col-md-8 text-center">
+                    <div class="card">
+                        <div class="card-body py-5">
+                            <h2 class="mb-4">Welcome to Sinking</h2>
+                            <p class="lead mb-4">
+                                A powerful synchronization service for Jira, GitHub, and Azure DevOps issues.
+                            </p>
+                            <p class="mb-4">
+                                Please <a href="/Account/Login" class="btn btn-primary">sign in</a> 
+                                or <a href="/Account/Register" class="btn btn-outline-primary">create an account</a> 
+                                to get started.
+                            </p>
+                            <div class="row mt-5">
+                                <div class="col-md-4">
+                                    <i class="bi bi-key-fill display-4 text-primary mb-3"></i>
+                                    <h5>Secure Token Management</h5>
+                                    <p>Safely store and manage Personal Access Tokens for all your systems.</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <i class="bi bi-arrow-repeat display-4 text-success mb-3"></i>
+                                    <h5>Automated Sync Jobs</h5>
+                                    <p>Configure scheduled synchronization jobs with custom field mappings.</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <i class="bi bi-activity display-4 text-warning mb-3"></i>
+                                    <h5>Real-time Monitoring</h5>
+                                    <p>Monitor job execution, view detailed failure logs, and manage running tasks.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    private int tokenCount = 0;
+    private int activeJobCount = 0;
+    private int runningJobCount = 0;
+    private int recentFailures = 0;
+    private List<SyncJobExecution> recentExecutions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User?.Identity?.IsAuthenticated == true)
+        {
+            var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await LoadDashboardDataAsync(userId);
+            }
+        }
+    }
+
+    private async Task LoadDashboardDataAsync(string userId)
+    {
+        tokenCount = await DbContext.PersonalAccessTokens
+            .Where(t => t.UserId == userId)
+            .CountAsync();
+
+        activeJobCount = await DbContext.SyncJobs
+            .Where(j => j.UserId == userId && j.IsActive && !j.IsPaused)
+            .CountAsync();
+
+        runningJobCount = await DbContext.SyncJobExecutions
+            .Include(e => e.SyncJob)
+            .Where(e => e.SyncJob.UserId == userId && e.Status == SyncJobStatus.Running)
+            .CountAsync();
+
+        var oneDayAgo = DateTime.UtcNow.AddDays(-1);
+        recentFailures = await DbContext.SyncJobExecutions
+            .Include(e => e.SyncJob)
+            .Where(e => e.SyncJob.UserId == userId && 
+                       e.Status == SyncJobStatus.Failed && 
+                       e.StartedAt >= oneDayAgo)
+            .CountAsync();
+
+        recentExecutions = await DbContext.SyncJobExecutions
+            .Include(e => e.SyncJob)
+            .Where(e => e.SyncJob.UserId == userId)
+            .OrderByDescending(e => e.StartedAt)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    private static string GetStatusBadgeClass(SyncJobStatus status) => status switch
+    {
+        SyncJobStatus.Completed => "bg-success",
+        SyncJobStatus.Running => "bg-primary",
+        SyncJobStatus.Failed => "bg-danger",
+        SyncJobStatus.Cancelled => "bg-secondary",
+        SyncJobStatus.Queued => "bg-info",
+        _ => "bg-secondary"
+    };
+}

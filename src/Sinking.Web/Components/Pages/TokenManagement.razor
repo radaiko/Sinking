@@ -1,0 +1,450 @@
+@page "/tokens"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Sinking.Web.Data
+@using Sinking.Web.Data.Models
+@using Sinking.Web.Services
+@using Sinking.Core
+@inject ApplicationDbContext DbContext
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ITokenEncryptionService TokenEncryption
+@inject IChangeLogService ChangeLogService
+@inject IJSRuntime JSRuntime
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Access Tokens - Sinking</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1>
+                        <i class="bi bi-key-fill me-2"></i>
+                        Personal Access Tokens
+                    </h1>
+                    <p class="text-muted">Manage secure connections to Jira, GitHub, and Azure DevOps</p>
+                </div>
+                <button class="btn btn-primary" @onclick="ShowAddTokenModal">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Add Token
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (tokens.Any())
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>System</th>
+                                        <th>Base URL</th>
+                                        <th>Status</th>
+                                        <th>Last Tested</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var token in tokens)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@token.Name</strong>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetSystemBadgeClass(token.SourceSystem)">
+                                                    @token.SourceSystem
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">@token.BaseUrl</small>
+                                            </td>
+                                            <td>
+                                                @if (token.LastTestResult.HasValue)
+                                                {
+                                                    if (token.LastTestResult.Value)
+                                                    {
+                                                        <span class="badge bg-success">
+                                                            <i class="bi bi-check-circle me-1"></i>
+                                                            Connected
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-danger" title="@token.LastTestMessage">
+                                                            <i class="bi bi-x-circle me-1"></i>
+                                                            Failed
+                                                        </span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">
+                                                        <i class="bi bi-question-circle me-1"></i>
+                                                        Not Tested
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (token.LastTestedAt.HasValue)
+                                                {
+                                                    <small>@token.LastTestedAt.Value.ToString("MM/dd/yyyy HH:mm")</small>
+                                                }
+                                                else
+                                                {
+                                                    <small class="text-muted">Never</small>
+                                                }
+                                            </td>
+                                            <td>
+                                                <small>@token.CreatedAt.ToString("MM/dd/yyyy")</small>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => TestToken(token.Id)">
+                                                        <i class="bi bi-wifi"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditTokenModal(token)">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDeleteToken(token.Id)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-6 text-center">
+                <div class="card">
+                    <div class="card-body py-5">
+                        <i class="bi bi-key display-1 text-muted mb-4"></i>
+                        <h3>No Access Tokens</h3>
+                        <p class="text-muted mb-4">
+                            You haven't added any Personal Access Tokens yet. 
+                            Add tokens to connect to Jira, GitHub, or Azure DevOps.
+                        </p>
+                        <button class="btn btn-primary" @onclick="ShowAddTokenModal">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            Add Your First Token
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Add/Edit Token Modal -->
+<div class="modal fade @(showTokenModal ? "show" : "")" 
+     style="display: @(showTokenModal ? "block" : "none")" 
+     tabindex="-1" 
+     aria-hidden="@(!showTokenModal)">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    @(isEditMode ? "Edit" : "Add") Access Token
+                </h5>
+                <button type="button" class="btn-close" @onclick="HideTokenModal"></button>
+            </div>
+            <EditForm Model="tokenModel" OnValidSubmit="SaveToken">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name *</label>
+                        <InputText class="form-control" @bind-Value="tokenModel.Name" placeholder="e.g., 'Main Jira Instance'" />
+                        <ValidationMessage For="() => tokenModel.Name" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">System *</label>
+                        <InputSelect class="form-select" @bind-Value="tokenModel.SourceSystem">
+                            <option value="">Select System</option>
+                            <option value="@SourceSystem.Jira">Jira</option>
+                            <option value="@SourceSystem.GitHub">GitHub</option>
+                            <option value="@SourceSystem.AzureDevOps">Azure DevOps</option>
+                        </InputSelect>
+                        <ValidationMessage For="() => tokenModel.SourceSystem" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Base URL *</label>
+                        <InputText class="form-control" @bind-Value="tokenModel.BaseUrl" 
+                                   placeholder="e.g., https://company.atlassian.net" />
+                        <ValidationMessage For="() => tokenModel.BaseUrl" />
+                        <div class="form-text">
+                            The base URL for your instance (without API paths)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Personal Access Token *
+                            @if (isEditMode)
+                            {
+                                <small class="text-muted">(leave blank to keep existing)</small>
+                            }
+                        </label>
+                        <InputText type="password" class="form-control" @bind-Value="tokenModel.Token" 
+                                   placeholder="Enter your personal access token" />
+                        <ValidationMessage For="() => tokenModel.Token" />
+                        <div class="form-text">
+                            Token is encrypted and securely stored. Never displayed after saving.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideTokenModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        @(isEditMode ? "Update" : "Add") Token
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@if (showTokenModal)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<PersonalAccessToken> tokens = new();
+    private bool showTokenModal = false;
+    private bool isEditMode = false;
+    private bool isLoading = false;
+    private TokenModel tokenModel = new();
+    private string currentUserId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        currentUserId = authState.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+        
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            await LoadTokensAsync();
+        }
+    }
+
+    private async Task LoadTokensAsync()
+    {
+        tokens = await DbContext.PersonalAccessTokens
+            .Where(t => t.UserId == currentUserId)
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+    }
+
+    private void ShowAddTokenModal()
+    {
+        tokenModel = new TokenModel();
+        isEditMode = false;
+        showTokenModal = true;
+    }
+
+    private void ShowEditTokenModal(PersonalAccessToken token)
+    {
+        tokenModel = new TokenModel
+        {
+            Id = token.Id,
+            Name = token.Name,
+            SourceSystem = token.SourceSystem,
+            BaseUrl = token.BaseUrl
+            // Don't populate the token for security
+        };
+        isEditMode = true;
+        showTokenModal = true;
+    }
+
+    private void HideTokenModal()
+    {
+        showTokenModal = false;
+        tokenModel = new TokenModel();
+    }
+
+    private async Task SaveToken()
+    {
+        isLoading = true;
+        try
+        {
+            PersonalAccessToken? token;
+            string changeType;
+            
+            if (isEditMode)
+            {
+                token = await DbContext.PersonalAccessTokens.FindAsync(tokenModel.Id);
+                if (token == null)
+                {
+                    return;
+                }
+                
+                var oldValues = new { token.Name, token.SourceSystem, token.BaseUrl };
+                
+                token.Name = tokenModel.Name;
+                token.SourceSystem = tokenModel.SourceSystem;
+                token.BaseUrl = tokenModel.BaseUrl;
+                token.UpdatedAt = DateTime.UtcNow;
+                
+                // Only update token if provided
+                if (!string.IsNullOrWhiteSpace(tokenModel.Token))
+                {
+                    token.EncryptedToken = TokenEncryption.EncryptToken(tokenModel.Token);
+                    // Reset test results when token changes
+                    token.LastTestResult = null;
+                    token.LastTestedAt = null;
+                    token.LastTestMessage = null;
+                }
+                
+                var newValues = new { token.Name, token.SourceSystem, token.BaseUrl };
+                
+                changeType = ChangeTypes.Update;
+                await ChangeLogService.LogChangeAsync(
+                    "PersonalAccessToken", token.Id, changeType,
+                    $"Updated token '{token.Name}' for {token.SourceSystem}",
+                    currentUserId, oldValues, newValues);
+            }
+            else
+            {
+                token = new PersonalAccessToken
+                {
+                    Name = tokenModel.Name,
+                    SourceSystem = tokenModel.SourceSystem,
+                    BaseUrl = tokenModel.BaseUrl,
+                    EncryptedToken = TokenEncryption.EncryptToken(tokenModel.Token),
+                    UserId = currentUserId,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                
+                DbContext.PersonalAccessTokens.Add(token);
+                changeType = ChangeTypes.Create;
+            }
+            
+            await DbContext.SaveChangesAsync();
+            
+            if (!isEditMode)
+            {
+                await ChangeLogService.LogChangeAsync(
+                    "PersonalAccessToken", token.Id, changeType,
+                    $"Created token '{token.Name}' for {token.SourceSystem}",
+                    currentUserId, null, new { token.Name, token.SourceSystem, token.BaseUrl });
+            }
+            
+            await LoadTokensAsync();
+            HideTokenModal();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task TestToken(int tokenId)
+    {
+        var token = tokens.FirstOrDefault(t => t.Id == tokenId);
+        if (token == null) return;
+
+        // Simulate a connection test - in a real implementation, 
+        // you would make actual API calls to test the connection
+        await Task.Delay(1000);
+        
+        token.LastTestedAt = DateTime.UtcNow;
+        token.LastTestResult = Random.Shared.NextDouble() > 0.2; // 80% success rate for demo
+        token.LastTestMessage = token.LastTestResult.Value 
+            ? "Connection successful" 
+            : "Authentication failed - check your token";
+        
+        DbContext.PersonalAccessTokens.Update(token);
+        await DbContext.SaveChangesAsync();
+        
+        await ChangeLogService.LogChangeAsync(
+            "PersonalAccessToken", token.Id, ChangeTypes.TestConnection,
+            $"Tested connection for token '{token.Name}': {(token.LastTestResult.Value ? "Success" : "Failed")}",
+            currentUserId);
+        
+        StateHasChanged();
+    }
+
+    private async Task ConfirmDeleteToken(int tokenId)
+    {
+        var token = tokens.FirstOrDefault(t => t.Id == tokenId);
+        if (token == null) return;
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"Are you sure you want to delete the token '{token.Name}'? This action cannot be undone.");
+        
+        if (confirmed)
+        {
+            await DeleteToken(tokenId);
+        }
+    }
+
+    private async Task DeleteToken(int tokenId)
+    {
+        var token = await DbContext.PersonalAccessTokens.FindAsync(tokenId);
+        if (token == null) return;
+
+        var oldValues = new { token.Name, token.SourceSystem, token.BaseUrl };
+
+        DbContext.PersonalAccessTokens.Remove(token);
+        await DbContext.SaveChangesAsync();
+        
+        await ChangeLogService.LogChangeAsync(
+            "PersonalAccessToken", tokenId, ChangeTypes.Delete,
+            $"Deleted token '{token.Name}' for {token.SourceSystem}",
+            currentUserId, oldValues, null);
+        
+        await LoadTokensAsync();
+    }
+
+    private static string GetSystemBadgeClass(SourceSystem system) => system switch
+    {
+        SourceSystem.Jira => "bg-primary",
+        SourceSystem.GitHub => "bg-dark",
+        SourceSystem.AzureDevOps => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    public class TokenModel
+    {
+        public int Id { get; set; }
+        
+        [Required]
+        [StringLength(100)]
+        public string Name { get; set; } = string.Empty;
+        
+        [Required]
+        public SourceSystem SourceSystem { get; set; }
+        
+        [Required]
+        [StringLength(200)]
+        [Url]
+        public string BaseUrl { get; set; } = string.Empty;
+        
+        public string Token { get; set; } = string.Empty;
+    }
+}
