@@ -2,13 +2,13 @@
 
 🔄 **A powerful 2-way synchronization service for seamlessly integrating issues and workflows between Jira, GitHub, and Azure DevOps.**
 
-![Sinking Homepage](https://github.com/user-attachments/assets/a11cf0ed-c12f-4cd2-b5c2-70ddc7c7f24d)
+![Sinking Homepage](docs/images/sinking-homepage.png)
 
 ## 🚀 Overview
 
 Sinking is a comprehensive .NET 9 web application that enables bidirectional synchronization of issues, work items, and workflows across multiple project management platforms. Whether you're working with Jira tickets, GitHub issues, or Azure DevOps work items, Sinking provides a unified interface to keep your teams in sync.
 
-![Sinking Dashboard](https://github.com/user-attachments/assets/a11cf0ed-c12f-4cd2-b5c2-70ddc7c7f24d)
+![Sinking Dashboard](docs/images/sinking-homepage.png)
 
 ### ✨ Key Features
 
@@ -132,7 +132,7 @@ The application uses SQLite by default with the following configuration in `apps
 - The first registered user gets administrator privileges
 
 ### 2. Configure Access Tokens
-![Token Management](https://github.com/user-attachments/assets/56ab0b89-5059-4fb5-a987-947aba4317b5)
+![Token Management](docs/images/token-management.png)
 
 Add Personal Access Tokens for your systems:
 - **Jira**: Create a token in your Atlassian account settings
