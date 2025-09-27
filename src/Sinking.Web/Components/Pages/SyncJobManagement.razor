@@ -182,7 +182,6 @@
     private List<SyncJob> syncJobs = new();
     private bool showJobModal = false;
     private bool isEditMode = false;
-    private bool isLoading = false;
     private SyncJobModel jobModel = new();
     private string currentUserId = string.Empty;
     private List<PersonalAccessToken> availableTokens = new();
@@ -333,6 +332,77 @@
         SourceSystem.AzureDevOps => "bg-info",
         _ => "bg-secondary"
     };
+
+    private void HideJobModal()
+    {
+        showJobModal = false;
+        jobModel = new SyncJobModel();
+    }
+
+    private async Task SaveJob()
+    {
+        try
+        {
+            if (isEditMode)
+            {
+                var existingJob = await DbContext.SyncJobs.FindAsync(jobModel.Id);
+                if (existingJob != null)
+                {
+                    existingJob.Name = jobModel.Name;
+                    existingJob.Description = jobModel.Description;
+                    existingJob.SourceSystem = jobModel.SourceSystem;
+                    existingJob.TargetSystem = jobModel.TargetSystem;
+                    existingJob.SourceTokenId = jobModel.SourceTokenId;
+                    existingJob.TargetTokenId = jobModel.TargetTokenId;
+                    existingJob.SourceProject = jobModel.SourceProject;
+                    existingJob.TargetProject = jobModel.TargetProject;
+                    existingJob.CronExpression = jobModel.CronExpression;
+                    existingJob.UpdatedAt = DateTime.UtcNow;
+
+                    await ChangeLogService.LogChangeAsync(
+                        "SyncJob", existingJob.Id, ChangeTypes.Update,
+                        $"Updated sync job '{existingJob.Name}'",
+                        currentUserId);
+                }
+            }
+            else
+            {
+                var newJob = new SyncJob
+                {
+                    Name = jobModel.Name,
+                    Description = jobModel.Description,
+                    SourceSystem = jobModel.SourceSystem,
+                    TargetSystem = jobModel.TargetSystem,
+                    SourceTokenId = jobModel.SourceTokenId,
+                    TargetTokenId = jobModel.TargetTokenId,
+                    SourceProject = jobModel.SourceProject,
+                    TargetProject = jobModel.TargetProject,
+                    CronExpression = jobModel.CronExpression,
+                    UserId = currentUserId,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                DbContext.SyncJobs.Add(newJob);
+                await DbContext.SaveChangesAsync();
+
+                await ChangeLogService.LogChangeAsync(
+                    "SyncJob", newJob.Id, ChangeTypes.Create,
+                    $"Created sync job '{newJob.Name}'",
+                    currentUserId);
+            }
+
+            await DbContext.SaveChangesAsync();
+            HideJobModal();
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            // Handle error - in a real app, show error message to user
+            Console.WriteLine($"Error saving job: {ex.Message}");
+        }
+    }
 
     public class SyncJobModel
     {

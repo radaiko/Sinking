@@ -10,12 +10,22 @@ public class TokenEncryptionService : ITokenEncryptionService
 {
     private readonly byte[] _key;
     private readonly byte[] _iv;
+    private readonly ILogger<TokenEncryptionService> _logger;
 
-    public TokenEncryptionService(IConfiguration configuration)
+    public TokenEncryptionService(IConfiguration configuration, ILogger<TokenEncryptionService> logger)
     {
+        _logger = logger;
+        
         // In production, these should be stored securely (Azure Key Vault, etc.)
-        var keyString = configuration["Encryption:Key"] ?? "DefaultKey32BytesLongForSinkingApp";
-        var ivString = configuration["Encryption:IV"] ?? "DefaultIV16Bytes";
+        var keyString = configuration["Encryption:Key"];
+        var ivString = configuration["Encryption:IV"];
+
+        if (string.IsNullOrEmpty(keyString) || string.IsNullOrEmpty(ivString))
+        {
+            _logger.LogWarning("Encryption keys not found in configuration. Using default keys. This is not secure for production use.");
+            keyString = "DefaultKey32BytesLongForSinkingApp";
+            ivString = "DefaultIV16Bytes";
+        }
 
         // Ensure key is 32 bytes for AES-256
         _key = PadOrTruncate(Encoding.UTF8.GetBytes(keyString), 32);
@@ -28,19 +38,27 @@ public class TokenEncryptionService : ITokenEncryptionService
         if (string.IsNullOrEmpty(plainTextToken))
             return string.Empty;
 
-        using var aes = Aes.Create();
-        aes.Key = _key;
-        aes.IV = _iv;
-
-        using var encryptor = aes.CreateEncryptor();
-        using var msEncrypt = new MemoryStream();
-        using var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
-        using (var swEncrypt = new StreamWriter(csEncrypt))
+        try
         {
-            swEncrypt.Write(plainTextToken);
-        }
+            using var aes = Aes.Create();
+            aes.Key = _key;
+            aes.IV = _iv;
 
-        return Convert.ToBase64String(msEncrypt.ToArray());
+            using var encryptor = aes.CreateEncryptor();
+            using var msEncrypt = new MemoryStream();
+            using var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
+            using (var swEncrypt = new StreamWriter(csEncrypt))
+            {
+                swEncrypt.Write(plainTextToken);
+            }
+
+            return Convert.ToBase64String(msEncrypt.ToArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to encrypt token");
+            throw new InvalidOperationException("Token encryption failed", ex);
+        }
     }
 
     public string DecryptToken(string encryptedToken)
@@ -63,9 +81,19 @@ public class TokenEncryptionService : ITokenEncryptionService
 
             return srDecrypt.ReadToEnd();
         }
-        catch
+        catch (FormatException ex)
         {
-            // Log error in production
+            _logger.LogError(ex, "Invalid encrypted token format");
+            return string.Empty;
+        }
+        catch (CryptographicException ex)
+        {
+            _logger.LogError(ex, "Failed to decrypt token - invalid key or corrupted data");
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error during token decryption");
             return string.Empty;
         }
     }
